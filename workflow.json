@@ -350,7 +350,7 @@
           "parameters": [
             {
               "name": "key",
-              "value": "=AIzaSyBt2fcGMmCyT_HSJGrfE56x1BHXwm3l20k"
+              "value": "=YOUR_GEMINI_API_KEY"
             }
           ]
         },
