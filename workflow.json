@@ -1,0 +1,722 @@
+{
+  "name": "Chatwoot Bot - FINAL",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// 🛡️ FILTRO CRÍTICO - VERSÃO ANTI-LOOP\n// ═══════════════════════════════════════════════════════\n\nconst data = $input.item.json;\nconst body = data.body || data;\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('🔍 FILTRO INICIAL - PRIMEIRA LINHA DE DEFESA');\nconsole.log('═══════════════════════════════════════════════════════');\n\n// Verifica se tem payload (estrutura Chatwoot)\nlet messageToCheck = body;\n\nif (body.payload && Array.isArray(body.payload) && body.payload.length > 0) {\n  messageToCheck = body.payload[body.payload.length - 1];\n  console.log('📨 Analisando última mensagem do payload...');\n}\n\nconsole.log('Event:', body.event || 'N/A');\nconsole.log('Message Type:', messageToCheck.message_type);\nconsole.log('Private:', messageToCheck.private);\nconsole.log('Sender ID:', messageToCheck.sender?.id);\nconsole.log('Sender Type:', messageToCheck.sender?.type);\nconsole.log('Content:', messageToCheck.content ? messageToCheck.content.substring(0, 50) + '...' : 'vazio');\nconsole.log('═══════════════════════════════════════════════════════');\n\n// ⛔ REGRA 0: BLOQUEAR mensagens do próprio BOT (CRÍTICO!)\nif (messageToCheck.sender && messageToCheck.sender.type === 'agent_bot') {\n  console.log('❌ BLOQUEADO: Mensagem do próprio BOT');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'BOT - Não processar próprias mensagens'\n    }\n  };\n}\n\n// ⛔ REGRA 0.5: BLOQUEAR por content_attributes (nossa flag)\nif (messageToCheck.content_attributes && \n    messageToCheck.content_attributes.source === 'n8n_bot') {\n  console.log('❌ BLOQUEADO: Mensagem identificada como enviada pelo n8n');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'N8N_BOT - Mensagem do próprio sistema'\n    }\n  };\n}\n\n// ⛔ REGRA 1: BLOQUEAR mensagens OUTGOING (message_type = 1)\nif (messageToCheck.message_type === 'outgoing' || messageToCheck.message_type === 1) {\n  console.log('❌ BLOQUEADO: Mensagem OUTGOING');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'OUTGOING - Sistema não processa próprias mensagens'\n    }\n  };\n}\n\n// ⛔ REGRA 2: BLOQUEAR eventos inválidos\nif (body.event && body.event !== 'message_created') {\n  console.log('❌ BLOQUEADO: Evento inválido:', body.event);\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: `Evento: ${body.event}`\n    }\n  };\n}\n\n// ⛔ REGRA 3: BLOQUEAR mensagens privadas\nif (messageToCheck.private === true) {\n  console.log('❌ BLOQUEADO: Mensagem privada');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'Mensagem privada'\n    }\n  };\n}\n\n// ⛔ REGRA 4: BLOQUEAR mensagens vazias\nif (!messageToCheck.content || messageToCheck.content.trim() === '') {\n  console.log('❌ BLOQUEADO: Mensagem vazia');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'Conteúdo vazio'\n    }\n  };\n}\n\n// ⛔ REGRA 5: Garantir que é INCOMING (message_type = 0)\nif (messageToCheck.message_type !== 'incoming' && messageToCheck.message_type !== 0) {\n  console.log('❌ BLOQUEADO: Não é incoming:', messageToCheck.message_type);\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: `Type: ${messageToCheck.message_type}`\n    }\n  };\n}\n// ⛔ REGRA 0.6: BLOQUEAR por skip_webhook\nif (messageToCheck.content_attributes && \n    messageToCheck.content_attributes.skip_webhook === true) {\n  console.log('❌ BLOQUEADO: Mensagem com skip_webhook=true');\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      reason: 'SKIP_WEBHOOK - Mensagem não deve processar webhooks'\n    }\n  };\n}\n\n// ✅ PERMITIR\nconsole.log('✅ APROVADO: Mensagem INCOMING válida');\nconsole.log('═══════════════════════════════════════════════════════');\n\nreturn {\n  json: {\n    ...body,\n    skip: false,\n    shouldProcess: true,\n    stopWorkflow: false,\n    validated: true,\n    messageId: messageToCheck.id || messageToCheck.message_id\n  }\n};"
+      },
+      "id": "af4a61d8-79a3-43cc-9b2d-e37cc271721e",
+      "name": "🛡️ FILTRO CRÍTICO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1904,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldProcess }}",
+              "value2": true
+            },
+            {
+              "value1": "={{ $json.skip }}",
+              "value2": false
+            }
+          ],
+          "options": {
+            "combineOperation": "all"
+          }
+        },
+        "options": {}
+      },
+      "id": "26862b50-9399-4919-8720-bf3f4845a365",
+      "name": "✅ Primeira Validação",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.validated }}",
+              "value2": true
+            },
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ],
+          "options": {
+            "combineOperation": "all"
+          }
+        },
+        "options": {}
+      },
+      "id": "370a5adb-98d9-4467-bdb8-7688e1693baa",
+      "name": "✅ Validar Dados Extraídos",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('✅ Validar Dados Extraídos').item.json.message }}",
+        "options": {
+          "systemMessage": "=# Verbesserter Prompt für MAIA - Virtueller Assistent von Multidrop\n\n## 1. Persona und Ziel\n\nSie sind **MAIA**, der **Intelligente Virtuelle Assistent von Multidrop**, einer Plattform für digitales Unternehmertum, die sich auf die Erstellung, den Verkauf und die Skalierung digitaler Produkte (wie Kurse, E-Books und Mentorings) und Dropshipping konzentriert [1] [2].\n\nIhr Hauptziel ist es, der **erste Ansprechpartner** für die Benutzer der Plattform zu sein, indem Sie präzise, motivierende und unterstützende Informationen bereitstellen und als **Kunden-Erfolgs-Agent** fungieren.\n\n## 2. Kritische Verhaltensregeln (Hard Rules)\n\n══════════════════════════════════════════════════════════\nKRITISCHE REGELN\n══════════════════════════════════════════════════════════\n\n1.  Sagen Sie **NIEMALS** \"melden Sie sich an\", \"Sie müssen eingeloggt sein\" oder einen Satz, der darauf hindeutet, dass Sie keinen Zugriff auf die Benutzerdaten haben.\n2.  Sagen Sie **NIEMALS** \"Ich kann nicht auf Ihre Daten zugreifen\" oder \"Ich habe keine Berechtigung\".\n3.  Sie **HABEN ZUGRIFF** auf die Daten über die verfügbaren Tools.\n4.  Wenn ein Tool einen technischen Fehler zurückgibt, muss Ihre **EINZIGE** Antwort lauten: \"Ich habe gerade technische Schwierigkeiten. Können Sie es bitte in Kürze erneut versuchen? Wenn das Problem weiterhin besteht, wenden Sie sich bitte an den Support.\"\n5.  Behalten Sie immer einen **informellen, freundlichen und motivierenden** Ton bei, der zur Kultur des digitalen Unternehmertums passt.\n\n## 3. Sprachverwaltung\n\n══════════════════════════════════════════════════════════\nSPRACHE\n══════════════════════════════════════════════════════════\n\nERKANNT SPRACHE: `{{ $('📤 Extrair Dados1').item.json.detectedLanguage }}`\n\n**ANTWORTEN SIE ZU 100% IN DER ERKANNTEN SPRACHE**, gemäß dem angegebenen Ton:\n-   `pt` (Brasilianisches Portugiesisch): **Informell, freundlich und motivierend**.\n-   `en` (Englisch): **Friendly and professional**.\n-   `de` (Deutsch): **Freundlich und professionell**.\n\n**MISCHEN SIE KEINE SPRACHEN** in der Antwort.\n\n## 4. Tool-Aufrufstruktur (Tools)\n\nSie sollten proaktiv sein und das entsprechende Tool **sofort** aufrufen, nachdem Sie die Absicht des Benutzers identifiziert haben.\n\n| Tool | Beschreibung | Schlüsselwörter/Aufrufabsi chten |\n| :--- | :--- | :--- |\n| `Dashboard Produtor` | Performance- und Verwaltungsdaten des Produzenten. | `verkäufe`, `verkauft`, `wie viele verkäufe`, `umsatz`, `einnahmen`, `auszahlung`, `auszahlen`, `verfügbar`, `freigegeben`, `produkte`, `meine produkte`, `durchschnittlicher ticketwert`, `produzent` |\n| `Dashboard Afiliado` | Performance- und Provisionsdaten des Affiliates. | `provision`, `provisionen`, `affiliate`, `affiliierung`, `klicks`, `leads erfasst`, `konversion`, `affiliate` |\n| `Gemini RAG Search` | Suche nach Tutorials, Anleitungen und \"Wie mache ich\"-Informationen. | `wie mache ich`, `wie erstelle ich`, `tutorial`, `schritt-für-schritt`, `konfigurieren`, `was ist`, `wie funktioniert`, `hilfe`, `support` |\n\n**AUSNAHME:** **RUFEN SIE KEINE TOOLS AUF** für einfache Begrüßungen oder lockere Gespräche: `hallo`, `hi`, `guten tag`, `guten morgen`, `guten abend`.\n\n## 5. Datenformatierung und Präsentation\n\nWenn Sie Daten vom `Dashboard Produtor` oder `Dashboard Afiliado` erhalten, präsentieren Sie diese klar und organisiert, immer mit einer Feier- oder Motivationsbotschaft.\n\n### 5.1. Standardformat\n\n| Benutzertyp | Metrik | Präsentationsformat |\n| :--- | :--- | :--- |\n| **PRODUZENT** | Gesamtverkäufe | `• Gesamtverkäufe: **X**` |\n| | Bruttoumsatz | `• Bruttoumsatz: **€ X,XX**` |\n| | Zur Auszahlung verfügbar | `• Zur Auszahlung verfügbar: **€ X,XX**` |\n| | Durchschnittlicher Ticketwert | `• Durchschnittlicher Ticketwert: **€ X,XX**` |\n| | Aktive Produkte | `• Aktive Produkte: **X**` |\n| **AFFILIATE** | Provisionen | `• Provisionen: **€ X,XX**` |\n| | Klicks | `• Klicks: **X**` |\n| | Leads | `• Leads: **X**` |\n| | Aktive Affiliierungen | `• Aktive Affiliierungen: **X**` |\n\n### 5.2. Regeln für den Tonfall\n\n-   **Wenn alle Werte Null (0) sind:** Verwenden Sie eine **motivierende** Nachricht. Beispiel: \"Ihre Daten sind auf Null, aber geben Sie nicht auf! **Machen Sie weiter mit der Werbung!** Der Erfolg ist zum Greifen nah. 🚀\"\n-   **Wenn ein Wert größer als Null (> 0) ist:** Verwenden Sie eine **feierliche** Nachricht. Beispiel: \"Herzlichen Glückwunsch zu Ihren Ergebnissen! Es ist großartig zu sehen, wie Ihr Geschäft wächst. 🎉\"\n\n## 6. Format der Endgültigen Antwort\n\nIhre Antwort muss prägnant, nützlich und auf die Persona abgestimmt sein.\n\n-   **Maximal 150 Wörter.**\n-   **Maximal 3 Emojis** (verwenden Sie diese, um den motivierenden/freundlichen Ton zu verstärken).\n-   Verwenden Sie `•` für Listen.\n-   Geldwerte und Hauptmetriken **MÜSSEN** **fett** gedruckt sein (z. B.: `**€ X,XX**`).\n-   Seien Sie direkt und liefern Sie die relevantesten Informationen zuerst.\n\n## 7. Benutzerkontext (Eingabevariablen)\n\nVerwenden Sie diese Variablen, um die Antwort und den Ton zu personalisieren.\n\n| Variable | Beschreibung | Anwendungsbeispiel |\n| :--- | :--- | :--- |\n| `Name` | `{{ $('📤 Extrair Dados1').item.json.userName }}` | \"Hallo, **{{userName}}**! Wie kann ich Ihnen heute helfen?\" |\n| `Email` | `{{ $('📤 Extrair Dados1').item.json.userEmail }}` | (Zur internen Referenz, sollte nicht angezeigt werden) |\n| `Sprache` | `{{ $('📤 Extrair Dados1').item.json.detectedLanguage }}` | (Wird zur Festlegung der Antwortsprache verwendet) |\n| `Absicht` | `{{ $('📤 Extrair Dados1').item.json.userIntent }}` | (Wird zur Steuerung des Tool-Aufrufs verwendet) |\n\n**KRITISCHE ANWEISUNGEN:**\n- Verwenden Sie IMMER den Namen \"{{ $('📤 Extrair Dados1').item.json.userName }}\" wenn Sie den Benutzer ansprechen\n- Sagen Sie NIEMALS \"Benutzer\" oder generische Begriffe, wenn der Name verfügbar ist\n- Der Name ist bereits verfügbar, Sie müssen NICHT danach fragen\n\n\n## Referenzen\n\n[1] Dein digitales Business startet genau hier. - Multidrop.com. (URL: https://www.multidrop.com/pt/old-home)\n[2] DIGITAL MARKETING PLATFORM 🌐🚀 (@multidrop.official) - Instagram. (URL: https://www.instagram.com/multidrop.official/?hl=en)\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -544,
+        144
+      ],
+      "id": "fc4f79a3-81b7-4577-847c-60d76e9a5b81",
+      "name": "🤖 AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "maxTokens": 500,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -656,
+        400
+      ],
+      "id": "dfcad37a-29fe-4f32-8444-543b8579aec0",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "21qvZTFAS9T9ZdRw",
+          "name": "Teste"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"status\": \"❌ Erro na validação\",\n  \"reason\": \"Dados inválidos ou incompletos\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "b2f47867-ed55-47ff-93f3-7c1370edb114",
+      "name": "❌ Responder Erro Validação",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -768,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════════════════════\n// 📤 EXTRAIR DADOS - VERSÃO 3.0 COM DETECÇÃO DE IDIOMA MELHORADA\n// ═══════════════════════════════════════════════════════════════════════════════\n\nconst data = $input.item.json;\nconst body = data.body || data;\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('🔍 EXTRAÇÃO DE DADOS E ANÁLISE INTELIGENTE - v3.0');\nconsole.log('═══════════════════════════════════════════════════════');\n\n// ═══════════════════════════════════════════════════════\n// 🌍 MÓDULO DE DETECÇÃO DE IDIOMA - VERSÃO MELHORADA\n// ═══════════════════════════════════════════════════════\n\nconst languageDetector = {\n  dictionaries: {\n    pt: {\n      // Saudações (peso alto)\n      greetings: ['oi', 'olá', 'ola', 'eai', 'eae', 'opa', 'fala', 'salve', 'bom dia', 'boa tarde', 'boa noite', 'tudo bem', 'tudo bom', 'beleza', 'e aí', 'e ai'],\n      // Verbos comuns\n      verbs: ['tenho', 'quero', 'posso', 'preciso', 'gostaria', 'fazer', 'sou', 'estou', 'ganhei', 'faturei', 'vendi', 'fiz', 'ver', 'saber', 'consegui', 'recebi', 'queria', 'poderia'],\n      // Conectivos\n      connectives: ['mas', 'então', 'entao', 'porque', 'quando', 'como', 'onde', 'pois', 'porém', 'porem', 'para', 'com', 'que', 'não', 'nao', 'sim', 'também', 'tambem'],\n      // Pronomes\n      pronouns: ['eu', 'você', 'voce', 'meu', 'minha', 'minhas', 'meus', 'seu', 'sua', 'nosso', 'nossa', 'me', 'te', 'nos'],\n      // Termos financeiros/plataforma\n      financial: ['vendas', 'venda', 'comissão', 'comissao', 'comissões', 'comissoes', 'saldo', 'quanto', 'produtos', 'produto', 'afiliado', 'afiliados', 'produtor', 'saque', 'sacar', 'faturamento', 'ganhos', 'ganhei', 'faturei'],\n      // Artigos e preposições (indicadores fortes)\n      articles: ['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'ao', 'aos', 'pelo', 'pela', 'este', 'esta', 'esse', 'essa', 'desse', 'dessa', 'nesse', 'nessa']\n    },\n    en: {\n      greetings: ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'whats up', 'howdy', 'greetings', 'sup', 'yo'],\n      verbs: ['have', 'want', 'can', 'need', 'would', 'make', 'am', 'is', 'are', 'earned', 'sold', 'got', 'did', 'see', 'know', 'get', 'could', 'should'],\n      connectives: ['but', 'then', 'because', 'when', 'how', 'where', 'however', 'for', 'with', 'and', 'that', 'not', 'yes', 'also', 'too'],\n      pronouns: ['i', 'you', 'my', 'your', 'our', 'their', 'his', 'her', 'me', 'mine', 'we', 'they', 'us'],\n      financial: ['sales', 'sale', 'commission', 'commissions', 'balance', 'earnings', 'products', 'product', 'affiliate', 'affiliates', 'producer', 'withdrawal', 'revenue', 'much', 'earned'],\n      articles: ['the', 'a', 'an', 'of', 'to', 'in', 'on', 'at', 'from', 'by', 'this', 'that', 'these', 'those']\n    },\n    de: {\n      // Incluindo versões com e sem caracteres especiais\n      greetings: ['hallo', 'guten tag', 'guten morgen', 'guten abend', 'servus', 'gruss', 'gruß', 'moin', 'mahlzeit', 'grüß gott'],\n      verbs: ['habe', 'will', 'kann', 'brauche', 'möchte', 'mochte', 'machen', 'bin', 'ist', 'sind', 'verdient', 'verkauft', 'bekommen', 'sehen', 'wissen', 'hatte', 'konnte', 'wurde'],\n      connectives: ['aber', 'dann', 'weil', 'wann', 'wie', 'wo', 'jedoch', 'für', 'fur', 'mit', 'und', 'dass', 'nicht', 'ja', 'auch', 'noch'],\n      pronouns: ['ich', 'du', 'mein', 'meine', 'meinen', 'meinem', 'dein', 'deine', 'unser', 'unsere', 'ihr', 'ihre', 'sein', 'seine', 'sie', 'mir', 'wir', 'uns'],\n      financial: ['verkäufe', 'verkaufe', 'verkauf', 'provision', 'provisionen', 'saldo', 'guthaben', 'produkte', 'produkt', 'partner', 'produzent', 'auszahlung', 'umsatz', 'wieviel', 'verdient'],\n      articles: ['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen', 'einem', 'einer', 'eines', 'von', 'zu', 'im', 'am', 'vom', 'zum', 'zur', 'beim']\n    }\n  },\n\n  // Normalizar texto (remover acentos para comparação)\n  normalize: function(text) {\n    return text\n      .toLowerCase()\n      .normalize('NFD')\n      .replace(/[\\u0300-\\u036f]/g, '') // Remove acentos\n      .replace(/[.,!?;:'\"()]/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim();\n  },\n\n  detect: function(message, previousLanguage = null) {\n    if (!message || message.trim() === '') {\n      return previousLanguage || 'pt';\n    }\n\n    const original = message.trim();\n    const normalized = this.normalize(message);\n    const words = normalized.split(' ').filter(w => w.length > 0);\n    \n    // Se mensagem muito curta (1-3 palavras), dar mais peso\n    const isShortMessage = words.length <= 3;\n    \n    const scores = { pt: 0, en: 0, de: 0 };\n    const weights = {\n      greetings: 5,      // Saudações são muito indicativas\n      articles: 3,       // Artigos são específicos por idioma\n      financial: 3,      // Termos da plataforma\n      verbs: 2,\n      pronouns: 2,\n      connectives: 1\n    };\n    \n    const matchedWords = { pt: [], en: [], de: [] };\n    \n    // Verificar cada palavra\n    for (const word of words) {\n      for (const [lang, dict] of Object.entries(this.dictionaries)) {\n        for (const [category, terms] of Object.entries(dict)) {\n          // Normalizar os termos do dicionário\n          const normalizedTerms = terms.map(t => this.normalize(t));\n          \n          // Verificar match exato\n          if (normalizedTerms.includes(word)) {\n            const weight = weights[category] || 1;\n            scores[lang] += weight;\n            matchedWords[lang].push(`${word}(${category}:${weight})`);\n            \n            if (isShortMessage) {\n              // Dobrar peso para mensagens curtas\n              scores[lang] += weight;\n            }\n          }\n        }\n        \n        // Verificar compostos em alemão (palavras longas)\n        if (lang === 'de' && word.length > 5) {\n          for (const [category, terms] of Object.entries(dict)) {\n            const normalizedTerms = terms.map(t => this.normalize(t));\n            for (const term of normalizedTerms) {\n              if (term.length > 3 && word.includes(term) && !matchedWords[lang].some(m => m.startsWith(word))) {\n                scores[lang] += 1;\n                matchedWords[lang].push(`${word}(composto:${term})`);\n              }\n            }\n          }\n        }\n      }\n    }\n    \n    // Também verificar frases completas (bigrams) para saudações\n    const fullNormalized = normalized;\n    for (const [lang, dict] of Object.entries(this.dictionaries)) {\n      for (const greeting of dict.greetings) {\n        const normalizedGreeting = this.normalize(greeting);\n        if (normalizedGreeting.includes(' ') && fullNormalized.includes(normalizedGreeting)) {\n          scores[lang] += weights.greetings;\n          matchedWords[lang].push(`\"${greeting}\"(saudação)`);\n        }\n      }\n    }\n    \n    console.log('🌍 Detecção de Idioma v3.0:');\n    console.log('  Mensagem original:', original.substring(0, 100));\n    console.log('  Mensagem normalizada:', normalized.substring(0, 100));\n    console.log('  Total de palavras:', words.length);\n    console.log('  Mensagem curta?', isShortMessage);\n    console.log('  Scores brutos:', JSON.stringify(scores));\n    console.log('  Matches PT:', matchedWords.pt.join(', ') || 'nenhum');\n    console.log('  Matches EN:', matchedWords.en.join(', ') || 'nenhum');\n    console.log('  Matches DE:', matchedWords.de.join(', ') || 'nenhum');\n    \n    // Calcular total\n    const totalScore = scores.pt + scores.en + scores.de;\n    \n    // Se nenhum score, usar idioma anterior ou padrão\n    if (totalScore === 0) {\n      const fallback = previousLanguage || 'pt';\n      console.log('  ⚠️ Nenhum indicador encontrado, usando fallback:', fallback);\n      return fallback;\n    }\n    \n    const percentages = {\n      pt: Math.round((scores.pt / totalScore) * 100),\n      en: Math.round((scores.en / totalScore) * 100),\n      de: Math.round((scores.de / totalScore) * 100)\n    };\n    \n    console.log('  Percentuais:', JSON.stringify(percentages));\n    \n    // Determinar vencedor\n    const maxScore = Math.max(scores.pt, scores.en, scores.de);\n    \n    // Threshold adaptativo baseado no tamanho da mensagem\n    const threshold = isShortMessage ? 1 : 2;\n    \n    let detectedLang = previousLanguage || 'pt';\n    \n    if (maxScore >= threshold) {\n      if (scores.pt === maxScore) {\n        detectedLang = 'pt';\n      } else if (scores.en === maxScore) {\n        detectedLang = 'en';\n      } else if (scores.de === maxScore) {\n        detectedLang = 'de';\n      }\n    }\n    \n    console.log('  ✅ Idioma detectado:', detectedLang);\n    return detectedLang;\n  }\n};\n\n// ═══════════════════════════════════════════════════════\n// 🎯 CLASSIFICADOR DE INTENÇÃO - VERSÃO MELHORADA\n// ═══════════════════════════════════════════════════════\n\nconst intentClassifier = {\n  patterns: {\n    greeting: {\n      universal: ['hi', 'hello', 'hey', 'oi', 'ola', 'olá', 'hallo', 'eai', 'eae', 'opa', 'fala', 'salve'],\n      phrases: ['bom dia', 'boa tarde', 'boa noite', 'good morning', 'good afternoon', 'good evening', 'guten tag', 'guten morgen', 'guten abend', 'tudo bem', 'tudo bom', 'como vai', 'how are you', 'wie geht'],\n      weight: 10\n    },\n    \n    producer: {\n      pt: ['vendas', 'venda', 'vendi', 'vender', 'produtos', 'produto', 'criador', 'produtor', 'ticket', 'faturamento', 'faturei', 'faturar', 'receita'],\n      en: ['sales', 'sale', 'sold', 'sell', 'products', 'product', 'creator', 'producer', 'ticket', 'revenue', 'earned'],\n      de: ['verkaufe', 'verkauf', 'verkauft', 'produkte', 'produkt', 'ersteller', 'produzent', 'umsatz', 'verdient'],\n      weight: 5\n    },\n    \n    affiliate: {\n      pt: ['comissão', 'comissao', 'comissões', 'comissoes', 'afiliado', 'afiliados', 'cliques', 'clique', 'leads', 'lead', 'conversão', 'conversao'],\n      en: ['commission', 'commissions', 'affiliate', 'affiliates', 'clicks', 'click', 'leads', 'lead', 'conversion'],\n      de: ['provision', 'provisionen', 'partner', 'klicks', 'klick', 'leads', 'konversion'],\n      weight: 5\n    },\n    \n    withdrawal: {\n      pt: ['saque', 'sacar', 'disponível', 'disponivel', 'liberado', 'retirar', 'transferir'],\n      en: ['withdraw', 'withdrawal', 'available', 'released', 'transfer'],\n      de: ['auszahlung', 'abheben', 'verfügbar', 'verfugbar', 'freigegeben'],\n      weight: 5\n    },\n    \n    financial_general: {\n      pt: ['quanto', 'total', 'ganhei', 'resumo', 'tudo', 'todos', 'completo', 'geral'],\n      en: ['how much', 'total', 'earned', 'summary', 'everything', 'all', 'complete', 'general'],\n      de: ['wieviel', 'wie viel', 'gesamt', 'verdient', 'zusammenfassung', 'alles', 'komplett', 'allgemein'],\n      weight: 3\n    },\n    \n    support: {\n      pt: ['como', 'fazer', 'criar', 'configurar', 'ajuda', 'erro', 'problema', 'tutorial', 'funciona', 'dúvida', 'duvida', 'explica', 'ensina'],\n      en: ['how', 'create', 'setup', 'configure', 'help', 'error', 'problem', 'tutorial', 'works', 'question', 'explain', 'teach'],\n      de: ['wie', 'erstellen', 'einrichten', 'konfigurieren', 'hilfe', 'fehler', 'problem', 'anleitung', 'funktioniert', 'frage', 'erklären', 'erklaren'],\n      weight: 4\n    }\n  },\n  \n  normalize: function(text) {\n    return text\n      .toLowerCase()\n      .normalize('NFD')\n      .replace(/[\\u0300-\\u036f]/g, '')\n      .replace(/[.,!?;:'\"()]/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim();\n  },\n  \n  classify: function(message, language) {\n    const normalized = this.normalize(message);\n    const words = normalized.split(' ').filter(w => w.length > 0);\n    \n    const intents = {\n      greeting: 0,\n      producer: 0,\n      affiliate: 0,\n      withdrawal: 0,\n      financial_general: 0,\n      support: 0\n    };\n    \n    const matchedIntents = {};\n    \n    // Verificar saudações primeiro (palavras únicas)\n    for (const word of words) {\n      if (this.patterns.greeting.universal.map(g => this.normalize(g)).includes(word)) {\n        intents.greeting += this.patterns.greeting.weight;\n        matchedIntents.greeting = (matchedIntents.greeting || []);\n        matchedIntents.greeting.push(word);\n      }\n    }\n    \n    // Verificar frases de saudação\n    for (const phrase of this.patterns.greeting.phrases) {\n      if (normalized.includes(this.normalize(phrase))) {\n        intents.greeting += this.patterns.greeting.weight;\n        matchedIntents.greeting = (matchedIntents.greeting || []);\n        matchedIntents.greeting.push(phrase);\n      }\n    }\n    \n    // Se é claramente uma saudação simples (só saudação, sem mais nada relevante)\n    if (intents.greeting > 0 && words.length <= 5) {\n      // Verificar se há outras palavras-chave\n      let hasOtherIntent = false;\n      \n      for (const word of words) {\n        for (const [intent, patterns] of Object.entries(this.patterns)) {\n          if (intent === 'greeting') continue;\n          \n          const langPatterns = patterns[language] || patterns.pt || [];\n          const normalizedPatterns = langPatterns.map(p => this.normalize(p));\n          \n          if (normalizedPatterns.includes(word)) {\n            hasOtherIntent = true;\n            break;\n          }\n        }\n        if (hasOtherIntent) break;\n      }\n      \n      if (!hasOtherIntent) {\n        console.log('🎯 Intenção detectada: greeting (saudação simples)');\n        console.log('  Matches:', matchedIntents.greeting?.join(', '));\n        return 'greeting';\n      }\n    }\n    \n    // Verificar outras intenções\n    for (const word of words) {\n      for (const [intent, patterns] of Object.entries(this.patterns)) {\n        if (intent === 'greeting') continue;\n        \n        // Tentar no idioma detectado primeiro, depois fallback para PT\n        const langPatterns = patterns[language] || patterns.pt || [];\n        const normalizedPatterns = langPatterns.map(p => this.normalize(p));\n        \n        if (normalizedPatterns.includes(word)) {\n          intents[intent] += patterns.weight || 1;\n          matchedIntents[intent] = (matchedIntents[intent] || []);\n          matchedIntents[intent].push(word);\n        }\n      }\n    }\n    \n    console.log('🎯 Classificação de Intenção:');\n    console.log('  Scores:', JSON.stringify(intents));\n    console.log('  Matches por intenção:', JSON.stringify(matchedIntents));\n    \n    // Determinar intenção principal\n    const maxScore = Math.max(...Object.values(intents));\n    \n    if (maxScore === 0) {\n      console.log('  Resultado: casual (nenhum padrão encontrado)');\n      return 'casual';\n    }\n    \n    // Verificar se é consulta geral (múltiplas categorias financeiras)\n    if ((intents.producer > 0 && intents.affiliate > 0) || \n        (intents.financial_general > 0 && (intents.producer > 0 || intents.affiliate > 0))) {\n      console.log('  Resultado: financial_general (múltiplas categorias)');\n      return 'financial_general';\n    }\n    \n    // Retornar intenção com maior score\n    for (const [intent, score] of Object.entries(intents)) {\n      if (score === maxScore && score > 0) {\n        console.log('  Resultado:', intent);\n        return intent;\n      }\n    }\n    \n    console.log('  Resultado: casual (fallback)');\n    return 'casual';\n  }\n};\n\n// ═══════════════════════════════════════════════════════\n// FASE 1: EXTRAIR conversationId e outros IDs\n// ═══════════════════════════════════════════════════════\n\nlet conversationId = null;\nlet foundAt = 'NENHUM';\n\nconsole.log('🔍 Buscando conversationId...');\n\n// ESTRUTURA PADRÃO CHATWOOT WEBHOOK\nif (body.conversation && body.conversation.id) {\n  conversationId = body.conversation.id;\n  foundAt = 'body.conversation.id';\n  console.log(`✅ Encontrado em ${foundAt}: ${conversationId}`);\n}\n\n// Fallback: outras estruturas\nif (!conversationId) {\n  console.log('⚠️ Não encontrado em body.conversation.id, tentando alternativas...');\n  \n  const paths = [\n    { name: 'data.conversation.id', value: data?.conversation?.id },\n    { name: 'body.conversationId', value: body?.conversationId },\n    { name: 'data.conversationId', value: data?.conversationId },\n    { name: 'body.conversation_id', value: body?.conversation_id },\n    { name: 'data.conversation_id', value: data?.conversation_id },\n    { name: 'body.id', value: body?.id },\n  ];\n  \n  for (const p of paths) {\n    console.log(`   🔎 Testando ${p.name}: ${p.value}`);\n    if (p.value !== null && p.value !== undefined && p.value !== '') {\n      conversationId = p.value;\n      foundAt = p.name;\n      console.log(`   ✅ ENCONTRADO: ${conversationId}`);\n      break;\n    }\n  }\n}\n\n// ═══════════════════════════════════════════════════════\n// FASE 2: EXTRAIR OUTROS CAMPOS\n// ═══════════════════════════════════════════════════════\n\n// Account ID\nlet accountId = \n  body?.account?.id || \n  data?.account?.id ||\n  body?.conversation?.account_id ||\n  '140903';\n\n// Inbox ID\nlet inboxId = \n  body?.inbox?.id || \n  data?.inbox?.id ||\n  body?.conversation?.inbox_id ||\n  '83726';\n\n// Message ID\nlet messageId = \n  body?.id || \n  data?.id ||\n  `msg_${Date.now()}`;\n\n// Content\nlet content = \n  body?.content || \n  data?.content || \n  body?.message || \n  '';\n\n// Sender (usuário que enviou a mensagem)\nconst sender = body?.sender || data?.sender || {};\nconst contact = body?.conversation?.meta?.sender || {};\n\nconst userName = \n  contact?.name ||\n  sender?.name || \n  'Usuário';\n\nconst userEmail = \n  contact?.email ||\n  sender?.email || \n  contact?.identifier ||\n  '';\n\nconst userPhone = \n  contact?.phone_number ||\n  sender?.phone_number ||\n  '';\n\nconst userAvatar = \n  contact?.thumbnail ||\n  sender?.avatar_url ||\n  '';\n\n// Message Type\nconst messageType = body?.message_type;\nconst isPrivate = body?.private || false;\nconst event = body?.event;\n\n// ═══════════════════════════════════════════════════════\n// FASE 3: DETECÇÃO DE IDIOMA E INTENÇÃO\n// ═══════════════════════════════════════════════════════\n\n// Obter idioma anterior do cache global (se existir)\nif (!global.userLanguageCache) {\n  global.userLanguageCache = {};\n}\nconst previousLanguage = global.userLanguageCache[conversationId] || null;\n\n// Detectar idioma atual\nconst detectedLanguage = languageDetector.detect(content, previousLanguage);\n\n// Armazenar no cache global\nglobal.userLanguageCache[conversationId] = detectedLanguage;\n\n// Classificar intenção\nconst userIntent = intentClassifier.classify(content, detectedLanguage);\n\n// Determinar quais tools chamar\nconst shouldCallTools = !['greeting', 'casual'].includes(userIntent);\n\nconst toolsToCall = {\n  dashboardProdutor: ['producer', 'financial_general', 'withdrawal'].includes(userIntent),\n  dashboardAfiliado: ['affiliate', 'financial_general'].includes(userIntent),\n  geminiRAG: userIntent === 'support'\n};\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('📊 RESUMO DA ANÁLISE:');\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('✅ conversationId:', conversationId, `(em: ${foundAt})`);\nconsole.log('✅ accountId:', accountId);\nconsole.log('✅ inboxId:', inboxId);\nconsole.log('✅ messageId:', messageId);\nconsole.log('✅ event:', event);\nconsole.log('✅ messageType:', messageType);\nconsole.log('✅ content (100 chars):', content.substring(0, 100));\nconsole.log('✅ userName:', userName);\nconsole.log('✅ userEmail:', userEmail);\nconsole.log('🌍 Idioma Detectado:', detectedLanguage);\nconsole.log('🌍 Idioma Anterior:', previousLanguage || 'nenhum');\nconsole.log('🎯 Intenção:', userIntent);\nconsole.log('🔧 Deve chamar tools?', shouldCallTools);\nconsole.log('🔧 Tools a chamar:', JSON.stringify(toolsToCall));\nconsole.log('═══════════════════════════════════════════════════════');\n\n// ═══════════════════════════════════════════════════════\n// VALIDAÇÃO CRÍTICA\n// ═══════════════════════════════════════════════════════\n\nif (!conversationId) {\n  console.error('════════════════════════════════════════════════════════════════════');\n  console.error('❌ ERRO: conversationId NÃO ENCONTRADO!');\n  console.error('════════════════════════════════════════════════════════════════════');\n  throw new Error(`❌ conversationId não encontrado! Verifique a estrutura do webhook no console. [foundAt: ${foundAt}]`);\n}\n\nif (!content || content.trim() === '') {\n  console.warn('⚠️ AVISO: content está vazio');\n  content = '[Mensagem vazia]';\n}\n\n// ═══════════════════════════════════════════════════════\n// ✅ RETORNO COMPLETO\n// ═══════════════════════════════════════════════════════\n\nconsole.log('✅ SUCESSO: Todos os dados extraídos e analisados!');\nconsole.log('═══════════════════════════════════════════════════════');\n\nreturn {\n  json: {\n    // IDs Críticos\n    conversationId: conversationId,\n    accountId: accountId,\n    inboxId: inboxId,\n    messageId: messageId,\n    \n    // Mensagem\n    message: content.trim(),\n    \n    // Análise Inteligente\n    detectedLanguage: detectedLanguage,\n    previousLanguage: previousLanguage,\n    userIntent: userIntent,\n    shouldCallTools: shouldCallTools,\n    toolsToCall: toolsToCall,\n    \n    // Dados do Usuário\n    userName: userName,\n    userEmail: userEmail,\n    userPhone: userPhone,\n    userAvatar: userAvatar,\n    \n    // Metadados\n    event: event,\n    messageType: messageType,\n    isPrivate: isPrivate,\n    \n    // Flags\n    skip: false,\n    shouldProcess: true,\n    validated: true,\n    success: true,\n    \n    // Debug\n    foundAt: foundAt,\n    timestamp: new Date().toISOString(),\n    _debug: {\n      hasConversation: !!body?.conversation,\n      hasAccount: !!body?.account,\n      hasInbox: !!body?.inbox,\n      hasSender: !!body?.sender,\n      languageDetection: {\n        detected: detectedLanguage,\n        previous: previousLanguage,\n        messageLength: content.length\n      },\n      intentClassification: {\n        intent: userIntent,\n        shouldCallTools: shouldCallTools,\n        tools: toolsToCall\n      }\n    }\n  }\n};"
+      },
+      "id": "61ceba46-510b-4f1e-ace3-59cb55e7c937",
+      "name": "📤 Extrair Dados1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1376,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// 🎨 FORMATAR RESPOSTA - VERSÃO 2.0 OTIMIZADA\n// ═══════════════════════════════════════════════════════\n\nconst aiData = $input.item.json;\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('🎨 FORMATAÇÃO DE RESPOSTA v2.0');\nconsole.log('AI Data Keys:', Object.keys(aiData));\nconsole.log('AI Data Type:', Array.isArray(aiData) ? 'Array' : typeof aiData);\nconsole.log('═══════════════════════════════════════════════════════');\n\n// ═══════════════════════════════════════════════════════\n// 🔍 BUSCAR DADOS DO NÓ \"EXTRAIR DADOS\"\n// ═══════════════════════════════════════════════════════\n\nlet conversationId, accountId, userName, userEmail, userPhone, detectedLanguage, userIntent;\n\ntry {\n  const extractNode = $('📤 Extrair Dados1').first().json;  // ✅ CORRIGIDO\n  conversationId = extractNode.conversationId;\n  accountId = extractNode.accountId;\n  userName = extractNode.userName;\n  userEmail = extractNode.userEmail;\n  userPhone = extractNode.userPhone;\n  detectedLanguage = extractNode.detectedLanguage;\n  userIntent = extractNode.userIntent;\n  \n  console.log('✅ Dados encontrados em \"Extrair Dados\"');\n  console.log('   - conversationId:', conversationId);\n  console.log('   - accountId:', accountId);\n  console.log('   - detectedLanguage:', detectedLanguage);\n  console.log('   - userIntent:', userIntent);\n} catch (error) {\n  console.error('❌ ERRO ao buscar dados de Extrair Dados:', error.message);\n  throw new Error('Não foi possível buscar dados do nó Extrair Dados');\n}\n\n// Validação crítica\nif (!conversationId || !accountId) {\n  console.error('❌ ERRO CRÍTICO: IDs ausentes!');\n  console.error('   conversationId:', conversationId);\n  console.error('   accountId:', accountId);\n  throw new Error('conversationId ou accountId ausente');\n}\n\n// ═══════════════════════════════════════════════════════\n// 🔍 EXTRAIR RESPOSTA DO AI AGENT\n// ═══════════════════════════════════════════════════════\n\nlet resposta = '';\n\n// Verificar se dados vieram em array\nlet dataToCheck = aiData;\n\nif (Array.isArray(aiData)) {\n  console.log('⚠️ Dados vieram em ARRAY');\n  if (aiData.length > 0) {\n    dataToCheck = aiData[0];\n    console.log('✅ Usando primeiro item do array');\n  } else {\n    console.error('❌ Array vazio!');\n    dataToCheck = {};\n  }\n}\n\nconsole.log('📦 Campos disponíveis:', Object.keys(dataToCheck));\n\n// TENTATIVA 1: Campo 'output' (string)\nif (dataToCheck.output && typeof dataToCheck.output === 'string') {\n  resposta = dataToCheck.output;\n  console.log('✅ Output encontrado (string)');\n}\n// TENTATIVA 2: Campo 'output' (objeto)\nelse if (dataToCheck.output && typeof dataToCheck.output === 'object') {\n  console.log('⚠️ Output é objeto');\n  if (dataToCheck.output.output) {\n    resposta = dataToCheck.output.output;\n  } else if (dataToCheck.output.text) {\n    resposta = dataToCheck.output.text;\n  } else if (dataToCheck.output.content) {\n    resposta = dataToCheck.output.content;\n  } else {\n    resposta = JSON.stringify(dataToCheck.output);\n  }\n}\n// TENTATIVA 3: Campo 'text'\nelse if (dataToCheck.text) {\n  resposta = dataToCheck.text;\n  console.log('✅ Text encontrado');\n}\n// TENTATIVA 4: Campo 'content'\nelse if (dataToCheck.content) {\n  resposta = dataToCheck.content;\n  console.log('✅ Content encontrado');\n}\n// TENTATIVA 5: Campo 'message'\nelse if (dataToCheck.message) {\n  resposta = dataToCheck.message;\n  console.log('✅ Message encontrado');\n}\n// FALLBACK baseado no idioma detectado\nelse {\n  console.error('═══════════════════════════════════════════════════════');\n  console.error('❌ NENHUMA RESPOSTA ENCONTRADA!');\n  console.error('Estrutura recebida:', JSON.stringify(dataToCheck).substring(0, 300));\n  console.error('═══════════════════════════════════════════════════════');\n  \n  // Fallback baseado no idioma\n  const fallbacks = {\n    pt: 'Oi! 👋 Sou a MAIA, sua assistente virtual da Multidrop! Como posso ajudar você hoje?',\n    en: 'Hi! 👋 I\\'m MAIA, your Multidrop virtual assistant! How can I help you today?',\n    de: 'Hallo! 👋 Ich bin MAIA, deine virtuelle Assistentin bei Multidrop! Wie kann ich dir heute helfen?'\n  };\n  \n  resposta = fallbacks[detectedLanguage] || fallbacks.pt;\n}\n\n// ═══════════════════════════════════════════════════════\n// 🧹 LIMPEZA E VALIDAÇÃO\n// ═══════════════════════════════════════════════════════\n\n// Garantir que é string\nif (typeof resposta !== 'string') {\n  resposta = String(resposta);\n}\n\n// Limpar\nresposta = resposta.trim();\n\n// Validar se vazio\nif (!resposta || resposta === '' || resposta === 'undefined' || resposta === 'null') {\n  console.log('⚠️ Resposta vazia, usando fallback baseado no idioma');\n  \n  const fallbacks = {\n    pt: 'Olá! Como posso ajudar você hoje? 😊',\n    en: 'Hello! How can I help you today? 😊',\n    de: 'Hallo! Wie kann ich dir heute helfen? 😊'\n  };\n  \n  resposta = fallbacks[detectedLanguage] || fallbacks.pt;\n}\n\n// ═══════════════════════════════════════════════════════\n// 🔍 VALIDAÇÃO DE IDIOMA DA RESPOSTA\n// ═══════════════════════════════════════════════════════\n\n// Verificação rápida se a resposta está no idioma correto\nconst languageIndicators = {\n  pt: ['olá', 'oi', 'você', 'seu', 'sua', 'vendas', 'comissão'],\n  en: ['hello', 'hi', 'your', 'sales', 'commission', 'earned'],\n  de: ['hallo', 'deine', 'verkäufe', 'provision', 'verdient']\n};\n\nlet responseLanguage = 'unknown';\nfor (const [lang, indicators] of Object.entries(languageIndicators)) {\n  if (indicators.some(word => resposta.toLowerCase().includes(word))) {\n    responseLanguage = lang;\n    break;\n  }\n}\n\nif (responseLanguage !== detectedLanguage && responseLanguage !== 'unknown') {\n  console.warn(`⚠️ AVISO: Resposta pode estar em idioma errado!`);\n  console.warn(`   Esperado: ${detectedLanguage}, Detectado: ${responseLanguage}`);\n}\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('✅ RESPOSTA FINAL PROCESSADA');\nconsole.log('Idioma esperado:', detectedLanguage);\nconsole.log('Idioma da resposta:', responseLanguage);\nconsole.log('Intenção:', userIntent);\nconsole.log('Tamanho:', resposta.length, 'caracteres');\nconsole.log('Primeiros 100 chars:', resposta.substring(0, 100));\nconsole.log('═══════════════════════════════════════════════════════');\n\n// ═══════════════════════════════════════════════════════\n// ✅ RETORNO COM TODOS OS DADOS\n// ═══════════════════════════════════════════════════════\n\nreturn {\n  json: {\n    // IDs necessários para HTTP Request\n    conversationId: conversationId,\n    accountId: accountId,\n    \n    // Dados do usuário\n    userName: userName,\n    userEmail: userEmail,\n    userPhone: userPhone,\n    \n    // Idioma e Intenção\n    detectedLanguage: detectedLanguage,\n    userIntent: userIntent,\n    \n    // Mensagem do assistente\n    assistantMessage: resposta,\n    \n    // Metadados\n    success: true,\n    timestamp: new Date().toISOString(),\n    \n    // Debug\n    _debug: {\n      originalType: Array.isArray(aiData) ? 'array' : typeof aiData,\n      responseLength: resposta.length,\n      hasContent: !!resposta,\n      hasConversationId: !!conversationId,\n      hasAccountId: !!accountId,\n      expectedLanguage: detectedLanguage,\n      responseLanguage: responseLanguage,\n      languageMatch: responseLanguage === detectedLanguage\n    }\n  }\n};"
+      },
+      "id": "b987042d-a1f9-4bd4-855b-9713580b96f8",
+      "name": "🎨 Formatar Resposta1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"reply\": {{ $json.assistantMessage | quote }},\n  \"status\": \"✅ Processado com sucesso\",\n  \"conversation_id\": {{ $json.conversationId | quote }},\n  \"user_name\": {{ $json.userName | quote }},\n  \"timestamp\": {{ $json.timestamp | quote }}\n}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "6f413b0f-5371-4779-9730-220f2fe6cf74",
+      "name": "✅ Responder Sucesso1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        368,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"status\": \"⏭️ Mensagem ignorada\",\n  \"reason\": {{ $json.reason | quote }},\n  \"message_type\": \"{{ $json.message_type || 'N/A' }}\",\n  \"event\": \"{{ $json.event || 'N/A' }}\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "46ccbc36-c233-4677-9d12-6ed9866ced5d",
+      "name": "⏭️ Responder Skip1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1392,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-webhook2",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d43e798f-7950-4caa-a0f7-941e7b1f0ed9",
+      "name": "🔔 Webhook Chatwoot",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -2720,
+        544
+      ],
+      "webhookId": "chatwoot-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://app.chatwoot.com/api/v1/accounts/{{ $json.accountId }}/conversations/{{ $json.conversationId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    content: $json.assistantMessage,\n    message_type: \"outgoing\",\n    private: false,\n    content_type: \"text\",\n    content_attributes: {\n      source: \"n8n_bot\",\n      skip_webhook: true\n    }\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        128,
+        144
+      ],
+      "id": "14a66b0a-88b3-4fbd-a258-b9d08c8463d9",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "qAWriaRPi3TZk2Jh",
+          "name": "Chatwoot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// 🔒 CACHE ANTI-DUPLICAÇÃO - PRIMEIRA LINHA DE DEFESA\n// ═══════════════════════════════════════════════════════\n\nconst data = $input.item.json;\nconst body = data.body || data;\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('🔒 VERIFICAÇÃO DE CACHE - BLOQUEIO DE DUPLICATAS');\nconsole.log('═══════════════════════════════════════════════════════');\n\n// Extrair identificador único\nlet messageToCheck = body;\nif (body.payload && Array.isArray(body.payload) && body.payload.length > 0) {\n  messageToCheck = body.payload[body.payload.length - 1];\n}\n\nconst messageId = messageToCheck.id || messageToCheck.message_id;\nconst conversationId = body.conversation?.id || body.conversationId;\nconst content = (messageToCheck.content || '').substring(0, 100);\nconst timestamp = messageToCheck.created_at || new Date().toISOString();\n\n// Criar chave única baseada em múltiplos campos\nconst uniqueKey = `${conversationId}_${messageId}_${content}`;\nconst cacheKey = `msg_${uniqueKey}`;\n\nconsole.log('📋 Identificadores:');\nconsole.log('  - Message ID:', messageId);\nconsole.log('  - Conversation ID:', conversationId);\nconsole.log('  - Content (100 chars):', content);\nconsole.log('  - Unique Key:', uniqueKey);\n\n// Inicializar cache global se não existir\nif (!global.messageCache) {\n  global.messageCache = {};\n  console.log('✨ Cache inicializado');\n}\n\n// Limpar cache antigo (mais de 10 minutos)\nconst tenMinutesAgo = Date.now() - (10 * 60 * 1000);\nlet cleaned = 0;\n\nObject.keys(global.messageCache).forEach(key => {\n  if (global.messageCache[key] < tenMinutesAgo) {\n    delete global.messageCache[key];\n    cleaned++;\n  }\n});\n\nif (cleaned > 0) {\n  console.log(`🧹 Limpeza: ${cleaned} entradas antigas removidas`);\n}\n\n// Verificar se já processamos esta mensagem\nif (global.messageCache[cacheKey]) {\n  const processedTime = global.messageCache[cacheKey];\n  const elapsedSeconds = Math.floor((Date.now() - processedTime) / 1000);\n  \n  console.log('═══════════════════════════════════════════════════════');\n  console.log('❌ DUPLICATA DETECTADA!');\n  console.log(`   Processada há ${elapsedSeconds} segundos`);\n  console.log(`   Cache Key: ${cacheKey}`);\n  console.log('═══════════════════════════════════════════════════════');\n  \n  // BLOQUEAR execução\n  return {\n    json: {\n      skip: true,\n      shouldProcess: false,\n      stopWorkflow: true,\n      blocked: true,\n      reason: `DUPLICATA - Já processado há ${elapsedSeconds}s`,\n      cacheKey: cacheKey,\n      processedAt: new Date(processedTime).toISOString()\n    }\n  };\n}\n\n// Primeira vez vendo esta mensagem - PERMITIR\nglobal.messageCache[cacheKey] = Date.now();\n\nconsole.log('═══════════════════════════════════════════════════════');\nconsole.log('✅ PRIMEIRA EXECUÇÃO - PERMITIDO');\nconsole.log(`   Total em cache: ${Object.keys(global.messageCache).length} mensagens`);\nconsole.log('═══════════════════════════════════════════════════════');\n\nreturn {\n  json: {\n    ...data,\n    skip: false,\n    shouldProcess: true,\n    validated: true,\n    blocked: false,\n    cacheKey: cacheKey,\n    cachedAt: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2480,
+        544
+      ],
+      "id": "4526178e-7e05-4f39-900d-587afda59e12",
+      "name": "🔒 CACHE ANTI-DUPLICAÇÃO"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7744711f-3876-487e-b13d-e57660549807",
+              "leftValue": "={{ $json.blocked }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e5648213-4dba-4550-a34c-548d99bf8543",
+              "leftValue": "={{ $json.shouldProcess }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2272,
+        544
+      ],
+      "id": "5023c2b6-cfb3-4dc1-9683-f962404ac521",
+      "name": "✅ Verificar Cache"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"status\": \"⏭️ Duplicata bloqueada pelo cache\",\n  \"reason\": \"{{ $json.reason }}\",\n  \"cache_key\": \"{{ $json.cacheKey }}\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -2064,
+        640
+      ],
+      "id": "eabd2c41-e8f3-4d6e-8ea5-85cbc443d35a",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "url": "https://md-backend-310083494351.europe-west3.run.app/auth/v2/login/chatwoot",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "identifier",
+              "value": "={{ $('🔔 Webhook Chatwoot').item.json.body.conversation.meta.sender.identifier }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -832,
+        224
+      ],
+      "id": "3c5747e7-3921-4367-98c1-dc1332fee3c7",
+      "name": "HTTP Request1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "toolDescription": "🔍 Use esta ferramenta para buscar informações na BASE DE CONHECIMENTO da Multidrop...\"\n\nNOVA DESCRIÇÃO (cole no campo \"Tool Description\"):\n\nBusca informações na base de conhecimento da Multidrop sobre tutoriais, funcionalidades e dúvidas.\n\nCHAME ESTA TOOL QUANDO O USUÁRIO PERGUNTAR:\n- \"Como faço para...\", \"Como criar...\", \"Como configurar...\"\n- \"O que é...\", \"Como funciona...\", \"Explica...\"\n- Dúvidas sobre plataforma, integrações, recursos, planos, pagamentos\n- Tutoriais e passo a passo\n\nREQUER input: envie a pergunta completa do usuário.\n\nNÃO CHAME para: saudações, consultas de vendas/comissões (use os Dashboards).",
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "=AIzaSyBt2fcGMmCyT_HSJGrfE56x1BHXwm3l20k"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"{{ $('📤 Extrair Dados1').item.json.message }}\"\n        }\n      ]\n    }\n  ],\n  \"tools\": [\n    {\n      \"file_search\": {\n        \"file_search_store_names\": [\n          \"fileSearchStores/chatsession1764854815740-8grs15q1tw58\"\n        ]\n      }\n    }\n  ],\n  \"generation_config\": {\n    \"temperature\": 0.7,\n    \"top_p\": 0.95,\n    \"max_output_tokens\": 1024\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        -32,
+        384
+      ],
+      "id": "ce19946d-0e6f-4c92-ac30-83b5671a1203",
+      "name": "🔍 Gemini RAG Search"
+    },
+    {
+      "parameters": {
+        "toolDescription": "\"🔍 Use esta ferramenta para buscar dados de PERFORMANCE DE PRODUTORES/CRIADORES...\"\n\nNOVA DESCRIÇÃO (cole no campo \"Tool Description\"):\n\nBusca dados de vendas e faturamento do usuário como PRODUTOR de produtos digitais.\n\nCHAME ESTA TOOL QUANDO O USUÁRIO PERGUNTAR SOBRE:\n- Vendas: \"quantas vendas\", \"minhas vendas\", \"vendi quanto\", \"vendas do mês\"\n- Faturamento: \"quanto faturei\", \"meu faturamento\", \"receita\", \"ganhos como produtor\"\n- Saque: \"quanto tenho para sacar\", \"saldo disponível\", \"valor liberado\"\n- Produtos: \"quantos produtos\", \"meus produtos\"\n- Ticket médio: \"ticket médio\", \"valor médio por venda\"\n\nRETORNA: qtdSales (vendas), grossSales (faturamento), earningsReleased (saque), averageTicket, qtdProduct\n\nNÃO requer input do usuário.",
+        "url": "https://md-backend-310083494351.europe-west3.run.app/dashboard/v2/performanceAnalysisBasic?view=P",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request1').item.json.token }}"
+            },
+            {
+              "name": "Content-Language",
+              "value": "PT"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        -336,
+        400
+      ],
+      "id": "14af89e7-926a-4369-b933-64c41e78b8b7",
+      "name": "Dashboard Produtor"
+    },
+    {
+      "parameters": {
+        "toolDescription": "🔍 Use esta ferramenta para buscar dados de PERFORMANCE DE AFILIADOS...\"\n\nNOVA DESCRIÇÃO (cole no campo \"Tool Description\"):\n\nBusca dados de comissões e performance do usuário como AFILIADO.\n\nCHAME ESTA TOOL QUANDO O USUÁRIO PERGUNTAR SOBRE:\n- Comissões: \"minhas comissões\", \"quanto ganhei de comissão\", \"comissionamento\"\n- Cliques: \"quantos cliques tive\", \"meus cliques\", \"cliques nos links\"\n- Leads: \"quantos leads\", \"leads capturados\", \"capturas\"\n- Afiliações: \"minhas afiliações\", \"produtos que promovo\", \"sou afiliado de quantos\"\n- Conversão: \"taxa de conversão\", \"conversões\"\n\nRETORNA: commission, clicks, leads, affiliations, earningsReleased\n\nNÃO requer input do usuário.",
+        "url": "https://md-backend-310083494351.europe-west3.run.app//dashboard/v2/performanceAnalysisBasic?view=A",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request1').item.json.token }}"
+            },
+            {
+              "name": "Content-Language",
+              "value": "PT"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        -176,
+        400
+      ],
+      "id": "7671c23b-c393-4e99-98ea-c0c0ef08644a",
+      "name": "Dashboard AFiliado"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $json.conversationId || $('📤 Extrair Dados1').first().json.conversationId || 'default_session' }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -496,
+        416
+      ],
+      "id": "4fb47bba-e29c-402a-a28f-b9daa9f75003",
+      "name": "Simple Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🛡️ FILTRO CRÍTICO": {
+      "main": [
+        [
+          {
+            "node": "✅ Primeira Validação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Primeira Validação": {
+      "main": [
+        [
+          {
+            "node": "📤 Extrair Dados1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⏭️ Responder Skip1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Validar Dados Extraídos": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Responder Erro Validação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent": {
+      "main": [
+        [
+          {
+            "node": "🎨 Formatar Resposta1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📤 Extrair Dados1": {
+      "main": [
+        [
+          {
+            "node": "✅ Validar Dados Extraídos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎨 Formatar Resposta1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔔 Webhook Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "🔒 CACHE ANTI-DUPLICAÇÃO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "✅ Responder Sucesso1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔒 CACHE ANTI-DUPLICAÇÃO": {
+      "main": [
+        [
+          {
+            "node": "✅ Verificar Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Verificar Cache": {
+      "main": [
+        [
+          {
+            "node": "🛡️ FILTRO CRÍTICO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Gemini RAG Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dashboard Produtor": {
+      "ai_tool": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dashboard AFiliado": {
+      "ai_tool": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "🤖 AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "58d79ab0-b47d-4593-a58f-c16792485e60",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "20ddc5aff6afecbe10adde5f2a978971314d747b86107ecf1ef4e64c40d9174d"
+  },
+  "id": "m5FDM3yQCxSJKUWs",
+  "tags": [
+    {
+      "updatedAt": "2025-11-04T14:46:35.080Z",
+      "createdAt": "2025-11-04T14:46:35.080Z",
+      "id": "4VX8R7hW2wOrkJl6",
+      "name": "webhook-trigger"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.966Z",
+      "createdAt": "2025-11-04T14:46:34.966Z",
+      "id": "5mgJ0DvIieDeTz6Z",
+      "name": "complex"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.994Z",
+      "createdAt": "2025-11-04T14:46:34.994Z",
+      "id": "7LUFUZa38CZ2SaIv",
+      "name": "noop"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.906Z",
+      "createdAt": "2025-11-04T14:46:34.906Z",
+      "id": "CrJA751ZbDTbGvIx",
+      "name": "stickynote"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:35.016Z",
+      "createdAt": "2025-11-04T14:46:35.016Z",
+      "id": "LgAIl9hOagChXeKA",
+      "name": "web-scraping"
+    },
+    {
+      "updatedAt": "2025-10-24T22:50:04.087Z",
+      "createdAt": "2025-10-24T22:50:04.087Z",
+      "id": "NLry1oim9dY2q07X",
+      "name": "intercom"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.935Z",
+      "createdAt": "2025-11-04T14:46:34.935Z",
+      "id": "Q6tJQao7iX1nG7Ss",
+      "name": "crm"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:35.039Z",
+      "createdAt": "2025-11-04T14:46:35.039Z",
+      "id": "QBjVH8isTzWpcc67",
+      "name": "webhook"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.826Z",
+      "createdAt": "2025-11-04T14:46:34.826Z",
+      "id": "VhN36PmBA6rsqbWk",
+      "name": "code"
+    },
+    {
+      "updatedAt": "2025-11-04T14:46:34.883Z",
+      "createdAt": "2025-11-04T14:46:34.883Z",
+      "id": "lQKiYVuAYbe008jG",
+      "name": "data-processing"
+    }
+  ]
+}
